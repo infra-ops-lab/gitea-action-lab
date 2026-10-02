@@ -1,0 +1,13 @@
+name: pr-check
+on: pull_request
+
+jobs:
+  jira-id:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$TITLE" | grep -Eq '^[A-Z]+-[0-9]+ ' \
+            && echo "OK: $TITLE" \
+            || { echo "PR title must start with an issue key, e.g. 'ABC-123 fix login'"; exit 1; }

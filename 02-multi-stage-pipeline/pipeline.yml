@@ -1,0 +1,29 @@
+name: pipeline
+on: [push, workflow_dispatch]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n app.sh test.sh && echo "syntax OK"
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./test.sh
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: tar czf app.tgz app.sh names.txt && ls -l app.tgz
+
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "deploying... (later this becomes the ArgoCD step)"

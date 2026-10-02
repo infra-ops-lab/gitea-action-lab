@@ -1,0 +1,76 @@
+# act_runner + Docker-in-Docker sidecar for a lab k3s cluster.
+# Lab only: the dind container is privileged (= root on the node).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitea-actions
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: act-runner-data
+  namespace: gitea-actions
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: act-runner
+  namespace: gitea-actions
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: act-runner }
+  template:
+    metadata:
+      labels: { app: act-runner }
+    spec:
+      containers:
+        - name: runner
+          image: gitea/act_runner:0.6.1
+          command: ["sh", "-c", "while [ ! -S /var/run/docker.sock ]; do echo 'waiting for docker daemon...'; sleep 5; done; /sbin/tini -- run.sh"]
+          env:
+            - name: GITEA_INSTANCE_URL
+              value: "http://gitea-http.gitea.svc.cluster.local:3000"
+            - name: GITEA_RUNNER_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef: { name: runner-token, key: token }
+            - name: GITEA_RUNNER_NAME
+              value: "k8s-runner-1"
+            - name: GITEA_RUNNER_LABELS
+              value: "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest,ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
+            - name: DOCKER_HOST
+              value: "unix:///var/run/docker.sock"
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: docker-run, mountPath: /var/run }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+        - name: dind
+          image: docker:27-dind
+          args: ["--insecure-registry=<gitea-host>:<port>"]
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: "/certs"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - { name: docker-certs, mountPath: /certs }
+            - { name: docker-run, mountPath: /var/run }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits:   { cpu: "4",  memory: 6Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: act-runner-data }
+        - name: docker-certs
+          emptyDir: {}
+        - name: docker-run
+          emptyDir: {}

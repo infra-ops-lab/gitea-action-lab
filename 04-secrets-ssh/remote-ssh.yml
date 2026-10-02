@@ -1,0 +1,23 @@
+name: remote-ssh
+on: [workflow_dispatch]
+
+jobs:
+  remote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install sshpass
+        run: apt-get update -qq && apt-get install -y -qq sshpass openssh-client >/dev/null
+
+      - name: run commands on the remote host
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSHPASS: ${{ secrets.SSH_PASS }}
+          HOST: 203.0.113.10
+        run: |
+          mkdir -p ~/.ssh && ssh-keyscan -t ed25519 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          sshpass -e ssh -o ConnectTimeout=10 "$SSH_USER@$HOST" '
+            echo "== hostname"; hostname
+            echo "== ls -ltr";  ls -ltr
+            echo "== df -h";    df -h
+            echo "== uptime";   uptime
+          '

@@ -1,0 +1,33 @@
+# Needs repo secrets REGISTRY_USER (Gitea user) + REGISTRY_TOKEN (token, package read/write) — see README
+name: image
+on: [push, workflow_dispatch]
+
+env:
+  REGISTRY: <gitea-host>:<port>
+  IMAGE: <gitea-host>:<port>/<owner>/hello-web
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build
+        run: |
+          TAG=${GITHUB_SHA::7}                      # short commit id → traceable, easy rollback
+          echo "TAG=$TAG" >> "$GITHUB_ENV"          # shares $TAG with the next steps
+          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" web/
+
+      - name: test
+        run: docker run --rm "$IMAGE:$TAG" cat /usr/share/nginx/html/index.html | grep -q "hello-web" && echo PASS
+
+      - name: push
+        if: github.ref_name == 'main'               # branches only build + test; main publishes
+        env:
+          REG_USER: ${{ secrets.REGISTRY_USER }}
+          REG_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          echo "$REG_TOKEN" | docker login "$REGISTRY" -u "$REG_USER" --password-stdin
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+          echo "pushed $IMAGE:$TAG"

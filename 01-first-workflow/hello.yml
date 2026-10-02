@@ -1,0 +1,11 @@
+# Copy to <your-repo>/.github/workflows/hello.yml and push (Gitea reads .github/ too).
+name: hello
+on: [push, workflow_dispatch]
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "commit ${{ github.sha }} by ${{ github.actor }} on ${{ github.server_url }}"
+      - run: uname -a && cat /etc/os-release | head -2 && ls -la
