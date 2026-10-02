@@ -20,5 +20,3 @@ git push ─► Gitea (queues jobs) ◄─ poll ─ act_runner ─► dind ─�
 
 **Prerequisites:** a k8s cluster (single-node k3s is enough) and Gitea installed with its Helm
 chart. Workflows go in `.github/workflows/` of a practice repo — the same files run on GitHub.
-
-License: MIT
